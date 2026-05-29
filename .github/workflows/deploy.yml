@@ -13,7 +13,7 @@ jobs:
 build:
 runs-on: ubuntu-latest
 
-```
+
 steps:
   - name: Checkout
     uses: actions/checkout@v4
@@ -28,13 +28,13 @@ steps:
     run: |
       docker push $NEXT_APP_WEBSITE_IMAGE
       docker push $NEXT_APP_NGINX_IMAGE
-```
+
 
 deploy:
 needs: build
 runs-on: ubuntu-latest
 
-```
+
 steps:
   - name: Checkout
     uses: actions/checkout@v4
@@ -61,4 +61,4 @@ steps:
         docker compose --env-file .env -f docker-compose.prod.yml down
         docker compose --env-file .env -f docker-compose.prod.yml up -d
       EOF
-```
+

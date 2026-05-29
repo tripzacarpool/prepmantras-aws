@@ -6,7 +6,6 @@ branches:
 - main
 
 env:
-REGISTRY: ghcr.io
 NEXT_APP_WEBSITE_IMAGE: ghcr.io/tripzacarpool/prepmantras-aws/website
 NEXT_APP_NGINX_IMAGE: ghcr.io/tripzacarpool/prepmantras-aws/nginx
 
@@ -16,15 +15,14 @@ runs-on: ubuntu-latest
 
 ```
 steps:
-  - uses: actions/checkout@v4
+  - name: Checkout
+    uses: actions/checkout@v4
 
   - name: Login to GHCR
-    run: |
-      echo "${{ secrets.PERSONAL_ACCESS_TOKEN }}" | docker login ghcr.io -u "${{ secrets.NAMESPACE }}" --password-stdin
+    run: echo "${{ secrets.PERSONAL_ACCESS_TOKEN }}" | docker login ghcr.io -u "${{ secrets.NAMESPACE }}" --password-stdin
 
   - name: Build Images
-    run: |
-      docker compose -f docker-compose.ci.yml build
+    run: docker compose -f docker-compose.ci.yml build
 
   - name: Push Images
     run: |
@@ -38,9 +36,10 @@ runs-on: ubuntu-latest
 
 ```
 steps:
-  - uses: actions/checkout@v4
+  - name: Checkout
+    uses: actions/checkout@v4
 
-  - name: Create .env
+  - name: Create Env File
     run: |
       echo "NEXT_APP_WEBSITE_IMAGE=$NEXT_APP_WEBSITE_IMAGE" > .env
       echo "NEXT_APP_NGINX_IMAGE=$NEXT_APP_NGINX_IMAGE" >> .env
@@ -58,13 +57,8 @@ steps:
 
       ssh ubuntu@${{ secrets.AWS_EC2_IP_ADDRESS }} << 'EOF'
         cd ~/prepmantras
-
-        echo "${{ secrets.PERSONAL_ACCESS_TOKEN }}" | docker login ghcr.io -u "${{ secrets.NAMESPACE }}" --password-stdin
-
         docker compose --env-file .env -f docker-compose.prod.yml pull
         docker compose --env-file .env -f docker-compose.prod.yml down
         docker compose --env-file .env -f docker-compose.prod.yml up -d
-
-        docker image prune -af
       EOF
 ```

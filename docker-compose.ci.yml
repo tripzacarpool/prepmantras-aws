@@ -2,7 +2,7 @@ services:
   website:
     container_name: website
     build:
-      context: ./website
+      context: .
       dockerfile: Dockerfile
       cache_from:
         - '${NEXT_APP_WEBSITE_IMAGE}'

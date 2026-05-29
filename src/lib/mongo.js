@@ -3,18 +3,23 @@ import { MongoClient } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
 
-if (!uri)
-  throw new Error("Missing MongoDB URI - Please add MONGODB_URI to .env.local");
-
 // ------------------
 // Mongoose Connection
 // ------------------
 let cached = global.mongoose;
+
 if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
+  cached = global.mongoose = {
+    conn: null,
+    promise: null,
+  };
 }
 
 export const connectMongoDB = async () => {
+  if (!process.env.MONGODB_URI) {
+    throw new Error("MONGODB_URI is not defined");
+  }
+
   if (cached.conn) return cached.conn;
 
   if (!cached.promise) {
@@ -23,7 +28,10 @@ export const connectMongoDB = async () => {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     };
-    cached.promise = mongoose.connect(uri, opts).then((mongoose) => mongoose);
+
+    cached.promise = mongoose
+      .connect(process.env.MONGODB_URI, opts)
+      .then((mongoose) => mongoose);
   }
 
   try {
@@ -43,15 +51,17 @@ export const connectMongoDB = async () => {
 let client;
 let clientPromise;
 
-if (process.env.NODE_ENV === "development") {
-  if (!global._mongoClientPromise) {
+if (uri) {
+  if (process.env.NODE_ENV === "development") {
+    if (!global._mongoClientPromise) {
+      client = new MongoClient(uri);
+      global._mongoClientPromise = client.connect();
+    }
+    clientPromise = global._mongoClientPromise;
+  } else {
     client = new MongoClient(uri);
-    global._mongoClientPromise = client.connect();
+    clientPromise = client.connect();
   }
-  clientPromise = global._mongoClientPromise;
-} else {
-  client = new MongoClient(uri);
-  clientPromise = client.connect();
 }
 
 export { clientPromise };

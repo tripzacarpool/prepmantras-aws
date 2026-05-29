@@ -1,0 +1,70 @@
+name: Continuous Integration and Delivery
+
+on:
+push:
+branches:
+- main
+
+env:
+REGISTRY: ghcr.io
+NEXT_APP_WEBSITE_IMAGE: ghcr.io/tripzacarpool/prepmantras-aws/website
+NEXT_APP_NGINX_IMAGE: ghcr.io/tripzacarpool/prepmantras-aws/nginx
+
+jobs:
+build:
+runs-on: ubuntu-latest
+
+```
+steps:
+  - uses: actions/checkout@v4
+
+  - name: Login to GHCR
+    run: |
+      echo "${{ secrets.PERSONAL_ACCESS_TOKEN }}" | docker login ghcr.io -u "${{ secrets.NAMESPACE }}" --password-stdin
+
+  - name: Build Images
+    run: |
+      docker compose -f docker-compose.ci.yml build
+
+  - name: Push Images
+    run: |
+      docker push $NEXT_APP_WEBSITE_IMAGE
+      docker push $NEXT_APP_NGINX_IMAGE
+```
+
+deploy:
+needs: build
+runs-on: ubuntu-latest
+
+```
+steps:
+  - uses: actions/checkout@v4
+
+  - name: Create .env
+    run: |
+      echo "NEXT_APP_WEBSITE_IMAGE=$NEXT_APP_WEBSITE_IMAGE" > .env
+      echo "NEXT_APP_NGINX_IMAGE=$NEXT_APP_NGINX_IMAGE" >> .env
+
+  - name: Setup SSH
+    run: |
+      mkdir -p ~/.ssh
+      echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa
+      chmod 600 ~/.ssh/id_rsa
+      ssh-keyscan -H ${{ secrets.AWS_EC2_IP_ADDRESS }} >> ~/.ssh/known_hosts
+
+  - name: Deploy
+    run: |
+      scp .env docker-compose.prod.yml ubuntu@${{ secrets.AWS_EC2_IP_ADDRESS }}:~/prepmantras/
+
+      ssh ubuntu@${{ secrets.AWS_EC2_IP_ADDRESS }} << 'EOF'
+        cd ~/prepmantras
+
+        echo "${{ secrets.PERSONAL_ACCESS_TOKEN }}" | docker login ghcr.io -u "${{ secrets.NAMESPACE }}" --password-stdin
+
+        docker compose --env-file .env -f docker-compose.prod.yml pull
+        docker compose --env-file .env -f docker-compose.prod.yml down
+        docker compose --env-file .env -f docker-compose.prod.yml up -d
+
+        docker image prune -af
+      EOF
+```

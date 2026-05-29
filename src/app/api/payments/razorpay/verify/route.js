@@ -8,12 +8,12 @@ import Payment from "@/models/paymentSchema";
 import UserInfo from "@/models/userInfoSchema";
 import mongoose from "mongoose";
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
-
 export async function POST(request) {
+  const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+
   try {
     console.log("Route hit: /api/payments/razorpay/verify");
 
@@ -23,7 +23,7 @@ export async function POST(request) {
       console.error("Unauthorized access: No valid session");
       return NextResponse.json(
         { success: false, error: "Unauthorized access" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -57,7 +57,7 @@ export async function POST(request) {
           success: false,
           error: "Missing required payment details or user ID",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -69,7 +69,7 @@ export async function POST(request) {
       });
       return NextResponse.json(
         { success: false, error: "User ID does not match authenticated user" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -78,7 +78,7 @@ export async function POST(request) {
       console.error("Invalid userId:", userId);
       return NextResponse.json(
         { success: false, error: "Invalid user ID format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -87,7 +87,7 @@ export async function POST(request) {
       console.error("Razorpay key secret not configured");
       return NextResponse.json(
         { success: false, error: "Server configuration error" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -107,7 +107,7 @@ export async function POST(request) {
       });
       return NextResponse.json(
         { success: false, error: "Invalid signature" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -118,7 +118,7 @@ export async function POST(request) {
       console.error("Payment not found:", razorpay_payment_id);
       return NextResponse.json(
         { success: false, error: "Payment not found" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     if (payment.amount !== Math.round(amount * 100)) {
@@ -128,19 +128,19 @@ export async function POST(request) {
       });
       return NextResponse.json(
         { success: false, error: "Amount mismatch" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Verify user exists in UserInfo with matching authUserId
     const user = await UserInfo.findOne({ authUserId: userId }).select(
-      "-password"
+      "-password",
     );
     if (!user) {
       console.error("User not found in UserInfo:", userId);
       return NextResponse.json(
         { success: false, error: "User not found" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -161,7 +161,7 @@ export async function POST(request) {
           subscription: "yes",
           role: "student",
         },
-        { new: true }
+        { new: true },
       ),
     ];
 
@@ -209,7 +209,7 @@ export async function POST(request) {
         success: false,
         error: `Payment verification failed: ${error.message}`,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

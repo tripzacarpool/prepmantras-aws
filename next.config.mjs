@@ -228,8 +228,7 @@ const nextConfig = {
     ];
   },
 
-  output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
-
+  output: "standalone",
   async generateBuildId() {
     return process.env.BUILD_ID || `build-${Date.now()}`;
   },

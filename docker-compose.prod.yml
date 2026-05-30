@@ -2,9 +2,22 @@ services:
   website:
     container_name: website
     image: '${NEXT_APP_WEBSITE_IMAGE}'
-    env_file: .env
+    env_file:
+      - .env
     ports:
       - '3000:3000'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   nginx:
     container_name: nginx
@@ -12,5 +25,15 @@ services:
     ports:
       - '80:80'
     depends_on:
-      - website
-    restart: always
+      website:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  default:
+    driver: bridge

@@ -6,9 +6,10 @@ on:
       - main
 
 env:
-  NEXT_APP_WEBSITE_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/
-  NEXT_APP_NGINX_IMAGE: ghcr.io/$(echo $GITHUB_REPOSITORY | tr '[:upper:]' '[:lower:]')/nginx
-  REGISTRY: ghcr.io
+env:
+  NEXT_APP_WEBSITE_IMAGE: ghcr.io/tripzacarpool/prepmantras-aws/website
+  NEXT_APP_NGINX_IMAGE: ghcr.io/tripzacarpool/prepmantras-aws/nginx
+  REGISTRY: ghcr.ios
 
 jobs:
   build:
@@ -24,9 +25,12 @@ jobs:
           echo "NEXT_APP_WEBSITE_IMAGE=$(echo ${{ env.NEXT_APP_WEBSITE_IMAGE }})" >> $GITHUB_ENV
           echo "NEXT_APP_NGINX_IMAGE=$(echo ${{ env.NEXT_APP_NGINX_IMAGE }})" >> $GITHUB_ENV
 
-      - name: Log in to GitHub Container Registry
+      - name: Log in to GitHub Packages
+        env:
+          PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
-          echo "${{ secrets.PERSONAL_ACCESS_TOKEN }}" | docker login ghcr.io -u tripzacarpool --password-stdin
+          echo ${PERSONAL_ACCESS_TOKEN} | docker login ghcr.io -u ${{ secrets.NAMESPACE }} --password-stdin
+
       - name: Create build env file
         run: |
           echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" >> .env

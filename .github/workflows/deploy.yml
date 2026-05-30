@@ -6,7 +6,6 @@ on:
       - main
 
 env:
-env:
   NEXT_APP_WEBSITE_IMAGE: ghcr.io/tripzacarpool/prepmantras-aws/website
   NEXT_APP_NGINX_IMAGE: ghcr.io/tripzacarpool/prepmantras-aws/nginx
   REGISTRY: ghcr.ios

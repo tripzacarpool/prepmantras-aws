@@ -8,7 +8,7 @@ on:
 env:
   NEXT_APP_WEBSITE_IMAGE: ghcr.io/tripzacarpool/prepmantras-aws/website
   NEXT_APP_NGINX_IMAGE: ghcr.io/tripzacarpool/prepmantras-aws/nginx
-  REGISTRY: ghcr.ios
+  REGISTRY: ghcr.io
 
 jobs:
   build:
@@ -21,22 +21,24 @@ jobs:
 
       - name: Set environment variables
         run: |
-          echo "NEXT_APP_WEBSITE_IMAGE=$(echo ${{ env.NEXT_APP_WEBSITE_IMAGE }})" >> $GITHUB_ENV
-          echo "NEXT_APP_NGINX_IMAGE=$(echo ${{ env.NEXT_APP_NGINX_IMAGE }})" >> $GITHUB_ENV
+          echo "NEXT_APP_WEBSITE_IMAGE=${{ env.NEXT_APP_WEBSITE_IMAGE }}" >> $GITHUB_ENV
+          echo "NEXT_APP_NGINX_IMAGE=${{ env.NEXT_APP_NGINX_IMAGE }}" >> $GITHUB_ENV
 
-      - name: Log in to GitHub Packages
+      - name: Log in to GitHub Container Registry
         env:
           PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
-          echo ${PERSONAL_ACCESS_TOKEN} | docker login ghcr.io -u ${{ secrets.NAMESPACE }} --password-stdin
+          echo "${PERSONAL_ACCESS_TOKEN}" | docker login ghcr.io -u ${{ secrets.NAMESPACE }} --password-stdin
 
       - name: Create build env file
         run: |
-          echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" >> .env
+          echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" > .env
+          echo "NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}" >> .env
 
       - name: Build images
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
         run: |
           docker compose -f docker-compose.ci.yml build
 
@@ -55,14 +57,14 @@ jobs:
       - name: Checkout main
         uses: actions/checkout@v3
 
-      - name: Add environment variables to .env
+      - name: Create production .env
         run: |
-          echo NEXT_APP_WEBSITE_IMAGE=${{ env.NEXT_APP_WEBSITE_IMAGE }} >> .env
-          echo NEXT_APP_NGINX_IMAGE=${{ env.NEXT_APP_NGINX_IMAGE }} >> .env
-          echo NAMESPACE=${{ secrets.NAMESPACE }} >> .env
-          echo PERSONAL_ACCESS_TOKEN=${{ secrets.PERSONAL_ACCESS_TOKEN }} >> .env
-          echo MONGODB_URI=${{ secrets.MONGODB_URI }} >> .env
-          echo NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }} >> .env
+          echo "NEXT_APP_WEBSITE_IMAGE=${{ env.NEXT_APP_WEBSITE_IMAGE }}" > .env
+          echo "NEXT_APP_NGINX_IMAGE=${{ env.NEXT_APP_NGINX_IMAGE }}" >> .env
+          echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" >> .env
+          echo "NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}" >> .env
+          echo "NAMESPACE=${{ secrets.NAMESPACE }}" >> .env
+          echo "PERSONAL_ACCESS_TOKEN=${{ secrets.PERSONAL_ACCESS_TOKEN }}" >> .env
 
       - name: Add the private SSH key to the ssh-agent
         env:
@@ -71,18 +73,26 @@ jobs:
           mkdir -p ~/.ssh
           ssh-agent -a $SSH_AUTH_SOCK > /dev/null
           ssh-keyscan github.com >> ~/.ssh/known_hosts
-          ssh-add - <<< "${{ secrets.PRIVATE_KEY }}"
+          echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          ssh-add ~/.ssh/ec2_key
 
       - name: Deploy images on AWS EC2
         env:
           SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
-          scp -o StrictHostKeyChecking=no -r ./.env ./docker-compose.prod.yml ${{ secrets.AWS_HOST_USER }}@${{ secrets.AWS_EC2_IP_ADDRESS }}:
+          scp -o StrictHostKeyChecking=no ./.env ./docker-compose.prod.yml ${{ secrets.AWS_HOST_USER }}@${{ secrets.AWS_EC2_IP_ADDRESS }}:
 
           ssh -o StrictHostKeyChecking=no ${{ secrets.AWS_HOST_USER }}@${{ secrets.AWS_EC2_IP_ADDRESS }} << EOF
-              docker-compose down --rmi all -v
-              docker login ghcr.io -u ${{ secrets.NAMESPACE }} -p ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-              docker-compose --env-file=.env -f docker-compose.prod.yml pull
-              docker-compose --env-file=.env -f docker-compose.prod.yml up -d
-              docker logout
+            docker login ghcr.io -u ${{ secrets.NAMESPACE }} -p ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
+            docker compose --env-file=.env -f docker-compose.prod.yml pull
+
+            docker compose --env-file=.env -f docker-compose.prod.yml down
+
+            docker compose --env-file=.env -f docker-compose.prod.yml up -d --force-recreate
+
+            docker ps
+
+            docker logout
           EOF
